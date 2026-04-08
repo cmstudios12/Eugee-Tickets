@@ -10,6 +10,9 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+  <!-- ✅ ADDED: JSZip -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
   <style>
     :root {
       --primary: #0d6efd;
@@ -147,6 +150,11 @@
       <i class="fa-solid fa-qrcode"></i> Generate QR Codes
     </button>
 
+    <!-- ✅ ADDED DOWNLOAD ALL BUTTON -->
+    <button id="downloadAllBtn" onclick="downloadAllQRs()" style="margin-top:10px; display:none;">
+      <i class="fa-solid fa-download"></i> Download All QR Codes
+    </button>
+
     <div id="loader" style="display:none;margin-top:15px;text-align:center;">
       <i class="fa-solid fa-spinner fa-spin" style="font-size:22px;color:#0d6efd"></i>
       <div style="font-size:13px;color:#6c757d;margin-top:6px;">Generating tickets, please wait...</div>
@@ -162,12 +170,20 @@
     const SUPABASE_KEY = "sb_publishable_bEvuBN_PM3UdX1ferXyQkg_tR97hhN7";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    // ✅ STORE GENERATED QR DATA
+    let generatedQRs = [];
+
     async function generateBulkTickets() {
       const loader = document.getElementById("loader");
       const btn = document.getElementById("generateBtn");
+      const downloadBtn = document.getElementById("downloadAllBtn");
+
       loader.style.display = "block";
       btn.disabled = true;
       btn.style.opacity = "0.7";
+
+      generatedQRs = []; // reset
+
       const qty = parseInt(document.getElementById("quantity").value);
       const type = document.getElementById("type").value;
       const grid = document.getElementById("qrGrid");
@@ -206,17 +222,55 @@
         box.onclick = () => downloadQR(qrDiv.querySelector("canvas"), ticketCode);
 
         grid.appendChild(box);
+
+        // ✅ SAVE FOR ZIP
+        setTimeout(() => {
+          const canvas = qrDiv.querySelector("canvas");
+          if (canvas) {
+            generatedQRs.push({
+              name: ticketCode + ".png",
+              data: canvas.toDataURL("image/png")
+            });
+          }
+        }, 100);
+
         await new Promise(r => setTimeout(r, 60));
       }
+
       loader.style.display = "none";
       btn.disabled = false;
       btn.style.opacity = "1";
+
+      // ✅ SHOW DOWNLOAD BUTTON
+      downloadBtn.style.display = "block";
     }
 
     function downloadQR(canvas, filename) {
       const link = document.createElement("a");
       link.download = filename + ".png";
       link.href = canvas.toDataURL();
+      link.click();
+    }
+
+    // ✅ DOWNLOAD ALL AS ZIP
+    async function downloadAllQRs() {
+      if (generatedQRs.length === 0) {
+        alert("No QR codes to download");
+        return;
+      }
+
+      const zip = new JSZip();
+
+      generatedQRs.forEach(qr => {
+        const base64 = qr.data.split(',')[1];
+        zip.file(qr.name, base64, { base64: true });
+      });
+
+      const content = await zip.generateAsync({ type: "blob" });
+
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(content);
+      link.download = "Gospel_QR_Tickets.zip";
       link.click();
     }
   </script>
